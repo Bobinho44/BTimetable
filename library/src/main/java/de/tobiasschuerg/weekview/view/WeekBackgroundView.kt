@@ -7,12 +7,10 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.util.Log
 import android.view.View
-import de.tobiasschuerg.weekview.util.DayOfWeekUtil
 import de.tobiasschuerg.weekview.util.TimeSpan
 import de.tobiasschuerg.weekview.util.dipToPixelF
 import de.tobiasschuerg.weekview.util.dipToPixelI
 import de.tobiasschuerg.weekview.util.toLocalString
-import org.threeten.bp.DayOfWeek
 import org.threeten.bp.Duration
 import org.threeten.bp.LocalDate
 import org.threeten.bp.LocalTime
@@ -50,12 +48,7 @@ internal class WeekBackgroundView constructor(context: Context) : View(context) 
 
     private var drawCount = 0
 
-    val days: MutableList<DayOfWeek> = DayOfWeekUtil.createList()
-        .toMutableList()
-        .apply {
-            remove(DayOfWeek.SATURDAY)
-            remove(DayOfWeek.SUNDAY)
-        }
+    private var days: List<LocalDate> = listOf(LocalDate.now(), LocalDate.now().plusDays(1), LocalDate.now().plusDays(2))
 
     var startTime: LocalTime = LocalTime.of(10, 0)
         private set
@@ -70,6 +63,11 @@ internal class WeekBackgroundView constructor(context: Context) : View(context) 
             requestLayout()
             // invalidate()
         }
+
+
+    fun setDays(days: List<LocalDate>) {
+        this.days = days
+    }
 
     fun setAccentColor(color: Int) {
         accentPaint.color = color
@@ -132,7 +130,7 @@ internal class WeekBackgroundView constructor(context: Context) : View(context) 
 
     private fun Canvas.drawColumnsWithHeaders() {
         Log.v(TAG, "Drawing vertical dividers on canvas")
-        val todayDay: DayOfWeek = LocalDate.now().dayOfWeek
+        val todayDay: LocalDate = LocalDate.now()
         for ((column, dayId) in days.withIndex()) {
             drawLeftColumnDivider(column)
             drawWeekDayName(dayId, column)
@@ -155,8 +153,8 @@ internal class WeekBackgroundView constructor(context: Context) : View(context) 
         drawRect(rect, accentPaint)
     }
 
-    private fun Canvas.drawWeekDayName(day: DayOfWeek, column: Int) {
-        val shortName = day.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+    private fun Canvas.drawWeekDayName(day: LocalDate, column: Int) {
+        val shortName = day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + day.dayOfMonth
         val xLabel = (getColumnStart(column, false) + getColumnEnd(column, false)) / 2
         drawText(
             shortName,

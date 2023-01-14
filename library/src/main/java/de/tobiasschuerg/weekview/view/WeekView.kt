@@ -11,14 +11,10 @@ import android.view.View
 import android.widget.RelativeLayout
 import androidx.annotation.RequiresApi
 import de.tobiasschuerg.weekview.R
-import de.tobiasschuerg.weekview.data.Event
-import de.tobiasschuerg.weekview.data.EventConfig
-import de.tobiasschuerg.weekview.data.WeekData
-import de.tobiasschuerg.weekview.data.WeekViewConfig
+import de.tobiasschuerg.weekview.data.*
 import de.tobiasschuerg.weekview.util.Animation
 import de.tobiasschuerg.weekview.util.DayOfWeekUtil
 import de.tobiasschuerg.weekview.util.dipToPixelF
-import org.threeten.bp.DayOfWeek
 import org.threeten.bp.Duration
 import org.threeten.bp.LocalDate
 import org.threeten.bp.LocalTime
@@ -43,6 +39,8 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
     private val scaleGestureDetector: ScaleGestureDetector
     private val weekViewConfig: WeekViewConfig
 
+    private var initialDay: LocalDate = LocalDate.now()
+
     var eventConfig = EventConfig()
 
     init {
@@ -60,6 +58,34 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
         addView(backgroundView)
 
         scaleGestureDetector = ScaleGestureDetector(context, ScaleListener())
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun advanceInitialDay() {
+        initialDay = initialDay.plusDays(1);
+        redraw()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun reculInitialDay() {
+        initialDay = initialDay.minusDays(1);
+        redraw()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun redraw() {
+        removeAllEvents()
+        val days = listOf(initialDay, initialDay.plusDays(1), initialDay.plusDays(2))
+        backgroundView.setDays(days)
+        backgroundView.invalidate()
+
+        var weekData: List<Event.Single> = ArrayList()
+        val thread = Thread {
+            weekData = EventCreator.daysData(days)
+        }
+        thread.start()
+        thread.join()
+        weekData.forEach { single -> addEvent(single) }
     }
 
     private inner class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -135,45 +161,12 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
     }
 
     fun addEvent(event: Event.Single) {
-        // enable weekend if not enabled yet
-        when (event.date.dayOfWeek) {
-            DayOfWeek.SATURDAY -> {
-                Log.i(TAG, "Enabling Saturday")
-                if (!backgroundView.days.contains(DayOfWeek.SATURDAY)) {
-                    backgroundView.days.add(DayOfWeek.SATURDAY)
-                }
-            }
-            DayOfWeek.SUNDAY -> {
-                Log.i(TAG, "Enabling Saturday")
-                if (!backgroundView.days.contains(DayOfWeek.SATURDAY)) {
-                    backgroundView.days.add(DayOfWeek.SATURDAY)
-                }
-                Log.i(TAG, "Enabling Sunday")
-                if (!backgroundView.days.contains(DayOfWeek.SUNDAY)) {
-                    backgroundView.days.add(DayOfWeek.SUNDAY)
-                }
-            }
-            else -> {
-                // nothing to do, just add the event
-            }
-        }
 
-        val lv = EventView(context, event, eventConfig, weekViewConfig.scalingFactor)
+        val lv = EventView(this, context, event, eventConfig, weekViewConfig.scalingFactor)
         backgroundView.updateTimes(event.timeSpan)
-
-        // mark active event
-        val now = LocalTime.now()
-        if (LocalDate.now().dayOfWeek == event.date.dayOfWeek && // this day
-            event.timeSpan.start < now && event.timeSpan.endExclusive > now
-        ) {
-            lv.animation = Animation.createBlinkAnimation()
-        }
 
         lv.setOnClickListener { clickListener?.invoke(lv) }
         lv.setOnCreateContextMenuListener(contextMenuListener)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            lv.transitionName = eventTransitionName
-        }
 
         addView(lv)
     }
@@ -190,9 +183,6 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
         Log.v(TAG, "l: $l, t: $t, r: $r, b: $b")
         super.onLayout(true, l, t, r, b)
 
-        val saturdayEnabled = backgroundView.days.contains(DayOfWeek.SATURDAY)
-        val sundayEnabled = backgroundView.days.contains(DayOfWeek.SUNDAY)
-
         for (childIndex in 0 until childCount) {
             Log.i(TAG, "child $childIndex of $childCount")
             val eventView: EventView
@@ -206,8 +196,8 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
             // FIXME   lessonView.setShortNameEnabled(isShortNameEnabled);
             val column: Int = DayOfWeekUtil.mapDayToColumn(
                 eventView.event.date.dayOfWeek,
-                saturdayEnabled,
-                sundayEnabled
+                true,
+                true
             )
             if (column < 0) {
                 // should not be necessary as wrong days get filtered before.

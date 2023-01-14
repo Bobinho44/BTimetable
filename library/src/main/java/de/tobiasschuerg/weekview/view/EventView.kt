@@ -6,12 +6,15 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.drawable.PaintDrawable
+import android.os.Build
 import android.os.Debug
 import android.util.Log
 import android.view.ContextMenu.ContextMenuInfo
+import android.view.MotionEvent
 import android.view.View
 import android.view.animation.Animation
 import android.view.animation.ScaleAnimation
+import androidx.annotation.RequiresApi
 import de.tobiasschuerg.weekview.BuildConfig
 import de.tobiasschuerg.weekview.data.Event
 import de.tobiasschuerg.weekview.data.EventConfig
@@ -20,10 +23,13 @@ import de.tobiasschuerg.weekview.util.ViewHelper
 import de.tobiasschuerg.weekview.util.dipToPixelF
 import de.tobiasschuerg.weekview.util.dipToPixelI
 import de.tobiasschuerg.weekview.util.toLocalString
+import kotlin.math.abs
 
 /** this view is only constructed during runtime. */
-@SuppressLint("ViewConstructor")
+@RequiresApi(Build.VERSION_CODES.O)
+@SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class EventView(
+    weekView: WeekView,
     context: Context,
     val event: Event.Single,
     private val config: EventConfig,
@@ -48,7 +54,43 @@ class EventView(
     private val weightLowerText: Int
     private val weightEndTime: Int
 
+    private var x1 = 0f
+    private var x2 = 0f
+    private val MIN_DISTANCE = 100
+
     init {
+        setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    x1 = event.x
+                }
+                MotionEvent.ACTION_UP -> {
+                    x2 = event.x
+                    val deltaX = x2 - x1
+                    if (abs(deltaX) > MIN_DISTANCE) {
+                        if (deltaX < 0) {
+                            weekView.advanceInitialDay()
+                        } else {
+                            weekView.reculInitialDay()
+                        }
+                    } else {
+                        // consider as something else - a screen tap for example
+                    }
+                }
+            }
+            when (event.pointerCount) {
+                1 -> {
+                    Log.d("Scroll", "1-pointer touch")
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                }
+                2 -> {
+                    Log.d("Zoom", "2-pointer touch")
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                }
+            }
+            false
+        }
+
         val padding = this.context.dipToPixelI(2f)
         setPadding(padding, padding, padding, padding)
 
@@ -159,19 +201,6 @@ class EventView(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         Log.d(TAG, "Laying out ${event.title}: changed[$changed] ($left, $top),($right, $bottom)")
         super.onLayout(changed, left, top, right, bottom)
-    }
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        val anim = ScaleAnimation(
-            0f, 1f, // Start and end values for the X axis scaling
-            0f, 1f, // Start and end values for the Y axis scaling
-            Animation.RELATIVE_TO_SELF, 0.5f, // Pivot point of X scaling
-            Animation.RELATIVE_TO_SELF, 0.5f
-        ) // Pivot point of Y scaling
-        anim.fillAfter = true // Needed to keep the result of the animation
-        anim.duration = 1000
-        this.startAnimation(anim)
     }
 
     override fun getContextMenuInfo(): ContextMenuInfo {

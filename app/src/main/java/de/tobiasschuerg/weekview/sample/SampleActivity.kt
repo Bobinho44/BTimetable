@@ -1,51 +1,38 @@
 package de.tobiasschuerg.weekview.sample
 
-import android.graphics.Color
+import android.annotation.SuppressLint
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.ContextMenu
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
+import android.view.*
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.jakewharton.threetenabp.AndroidThreeTen
-import de.tobiasschuerg.weekview.data.Event
 import de.tobiasschuerg.weekview.data.EventConfig
-import de.tobiasschuerg.weekview.util.TimeSpan
 import de.tobiasschuerg.weekview.view.EventView
 import de.tobiasschuerg.weekview.view.WeekView
-import org.threeten.bp.Duration
-import org.threeten.bp.LocalDate
-import org.threeten.bp.LocalTime
-import org.threeten.bp.temporal.ChronoUnit
+import kotlin.math.abs
 
 class SampleActivity : AppCompatActivity() {
 
     private val weekView: WeekView by lazy { findViewById(R.id.week_view) }
+    private var x1 = 0f
+    private var x2 = 0f
+    private val MIN_DISTANCE = 100
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidThreeTen.init(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sample)
 
-        val config = EventConfig(showSubtitle = false, showTimeEnd = false)
+        val config = EventConfig()
         weekView.eventConfig = config
         weekView.setShowNowIndicator(true)
 
-        // set up the WeekView with the data
-        weekView.addEvents(EventCreator.weekData)
-
-        val nowEvent = Event.Single(
-            id = 1337,
-            date = LocalDate.now(),
-            title = "Current hour",
-            shortTitle = "Now",
-            timeSpan = TimeSpan.of(LocalTime.now().truncatedTo(ChronoUnit.HOURS), Duration.ofHours(1)),
-            backgroundColor = Color.RED,
-            textColor = Color.WHITE
-        )
-        weekView.addEvent(nowEvent)
+        weekView.redraw()
 
         // optional: add an onClickListener for each event
         weekView.setEventClickListener {
@@ -57,10 +44,28 @@ class SampleActivity : AppCompatActivity() {
         registerForContextMenu(weekView)
 
         weekView.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    x1 = event.x
+                }
+                MotionEvent.ACTION_UP -> {
+                    x2 = event.x
+                    val deltaX = x2 - x1
+                    if (abs(deltaX) > MIN_DISTANCE) {
+                        if (deltaX < 0) {
+                            weekView.advanceInitialDay()
+                        } else {
+                            weekView.reculInitialDay()
+                        }
+                    } else {
+                        // consider as something else - a screen tap for example
+                    }
+                }
+            }
             when (event.pointerCount) {
                 1 -> {
                     Log.d("Scroll", "1-pointer touch")
-                    v.parent.requestDisallowInterceptTouchEvent(false)
+                    v.parent.requestDisallowInterceptTouchEvent(true)
                 }
                 2 -> {
                     Log.d("Zoom", "2-pointer touch")
@@ -81,20 +86,21 @@ class SampleActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add("Add").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
-        menu.add("Clear").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        menu.add("<").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        menu.add(">").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         return super.onCreateOptionsMenu(menu)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.title) {
-            "Add" -> {
+            "<" -> {
                 Log.i(TAG, "add option clicked")
-                weekView.addEvent(EventCreator.createRandomEvent())
+                weekView.reculInitialDay()
             }
-            "Clear" -> {
+            ">" -> {
                 Log.i(TAG, "clear option clicked")
-                weekView.removeAllEvents()
+                weekView.advanceInitialDay()
             }
         }
         return true
