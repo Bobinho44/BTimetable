@@ -1,6 +1,8 @@
 package de.tobiasschuerg.weekview.data
 
 import android.content.SharedPreferences
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Persists the WeekViewConfig.
@@ -13,7 +15,7 @@ class WeekViewConfig(val prefs: SharedPreferences) {
 
     var scalingFactor: Float = prefs.getFloat(SCALING_FACTOR, 1f)
         set(value) {
-            field = value
+            field = max(0.6f, value)
             prefs.edit().putFloat(SCALING_FACTOR, value).apply()
         }
 }

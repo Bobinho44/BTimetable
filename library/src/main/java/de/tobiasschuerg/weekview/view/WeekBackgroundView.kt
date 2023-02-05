@@ -17,6 +17,8 @@ import org.threeten.bp.LocalTime
 import org.threeten.bp.format.TextStyle
 import org.threeten.bp.temporal.ChronoUnit
 import java.util.Locale
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 internal class WeekBackgroundView constructor(context: Context) : View(context) {
@@ -50,16 +52,16 @@ internal class WeekBackgroundView constructor(context: Context) : View(context) 
 
     private var days: List<LocalDate> = listOf(LocalDate.now(), LocalDate.now().plusDays(1), LocalDate.now().plusDays(2))
 
-    var startTime: LocalTime = LocalTime.of(10, 0)
-        private set
-    private var endTime: LocalTime = LocalTime.of(13, 0)
+    var startTime: LocalTime = LocalTime.of(8, 0)
+
+    private var endTime: LocalTime = LocalTime.of(23, 0)
 
     var scalingFactor = 1f
         /**
          * Updated the scaling factor and redraws the view.
          */
         set(value) {
-            field = value
+            field = max(0.6f, value)
             requestLayout()
             // invalidate()
         }
@@ -104,6 +106,7 @@ internal class WeekBackgroundView constructor(context: Context) : View(context) 
         Log.d(TAG, "Drawing horizontal dividers")
         var localTime = startTime
         var last = LocalTime.MIN
+        drawLine(0f, 0f, width.toFloat(), 0f, paintDivider)
         while (localTime.isBefore(endTime) && !last.isAfter(localTime)) {
             val offset = Duration.between(startTime, localTime)
             Log.v(TAG, "Offset $offset")
@@ -154,10 +157,10 @@ internal class WeekBackgroundView constructor(context: Context) : View(context) 
     }
 
     private fun Canvas.drawWeekDayName(day: LocalDate, column: Int) {
-        val shortName = day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + day.dayOfMonth
+        val shortName = day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + day.dayOfMonth + " " + day.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + "."
         val xLabel = (getColumnStart(column, false) + getColumnEnd(column, false)) / 2
         drawText(
-            shortName,
+            shortName.uppercase(),
             xLabel.toFloat(),
             topOffsetPx / 2 + mPaintLabels.descent(),
             mPaintLabels

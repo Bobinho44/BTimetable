@@ -8,6 +8,9 @@ import android.graphics.Rect
 import android.graphics.drawable.PaintDrawable
 import android.os.Build
 import android.os.Debug
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
 import android.util.Log
 import android.view.ContextMenu.ContextMenuInfo
 import android.view.MotionEvent
@@ -40,7 +43,7 @@ class EventView(
     private val TAG = javaClass.simpleName
     private val CORNER_RADIUS_PX = context.dipToPixelF(2f)
 
-    private val textPaint: Paint by lazy { Paint().apply { isAntiAlias = true } }
+    private val textPaint: TextPaint by lazy { TextPaint().apply { isAntiAlias = true } }
 
     private val eventName: String by lazy { if (config.useShortNames) event.shortTitle else event.title }
 
@@ -56,7 +59,7 @@ class EventView(
 
     private var x1 = 0f
     private var x2 = 0f
-    private val MIN_DISTANCE = 100
+    private val MIN_DISTANCE = 200
 
     init {
         setOnTouchListener { v, event ->
@@ -112,6 +115,7 @@ class EventView(
     }
 
     // TODO: clean up
+    @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
         Log.d(TAG, "Drawing ${event.title}")
 
@@ -125,20 +129,29 @@ class EventView(
         }
 
         // title
-        val maxTextSize = TextHelper.fitText(eventName, textPaint.textSize * 3, width - (paddingLeft + paddingRight), height / 4)
-        textPaint.textSize = maxTextSize
+        var initialSize = textPaint.textSize
+        textPaint.textSize = textPaint.textSize * 1.8F
+        //val maxTextSize = TextHelper.fitText(eventName, textPaint.textSize * 3, width - (paddingLeft + paddingRight), height / 4)
+        //textPaint.textSize = maxTextSize
         textPaint.getTextBounds(eventName, 0, eventName.length, textBounds)
         var weight = weightStartTime + weightUpperText
         if (weight == 0) {
             weight++
         }
         val subjectY = getY(weight, weightTitle, textBounds)
-        canvas.drawText(eventName, (width / 2 - textBounds.centerX()).toFloat(), subjectY.toFloat(), textPaint)
 
-        textPaint.textSize = TextHelper.fitText(
-            "123456", maxTextSize, width / 2,
-            getY(position = 1, bounds = textBounds) - getY(position = 0, bounds = textBounds)
-        )
+        val staticLayout = StaticLayout(event.title, textPaint, width - (paddingLeft + paddingRight), Layout.Alignment.ALIGN_CENTER, 1.0f, 0.0f, false)
+        canvas.save()
+        canvas.translate(paddingLeft.toFloat(), subjectY.toFloat())
+        staticLayout.draw(canvas)
+        canvas.restore()
+
+
+        textPaint.textSize = 0.833333F * textPaint.textSize
+        //textPaint.textSize = TextHelper.fitText(
+          //  "123456", maxTextSize, width / 2,
+            //getY(position = 1, bounds = textBounds) - getY(position = 0, bounds = textBounds)
+        //)
 
         // start time
         if (config.showTimeStart) {
@@ -174,6 +187,8 @@ class EventView(
             val locationY = getY(position = weightStartTime + weightUpperText + weightTitle + weightSubTitle, bounds = textBounds)
             canvas.drawText(event.lowerText, (width / 2 - textBounds.centerX()).toFloat(), locationY.toFloat(), textPaint)
         }
+
+        textPaint.textSize = initialSize
     }
 
     private fun getY(position: Int, weight: Int = 1, bounds: Rect): Int {

@@ -5,21 +5,43 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.*
-import android.widget.Toast
+import android.widget.*
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.children
 import com.jakewharton.threetenabp.AndroidThreeTen
 import de.tobiasschuerg.weekview.data.EventConfig
 import de.tobiasschuerg.weekview.view.EventView
 import de.tobiasschuerg.weekview.view.WeekView
+import org.threeten.bp.Clock
+import org.threeten.bp.LocalDate
 import kotlin.math.abs
 
 class SampleActivity : AppCompatActivity() {
 
     private val weekView: WeekView by lazy { findViewById(R.id.week_view) }
+    private val weekInfoView: WeekView by lazy { findViewById(R.id.textView2) }
+    private var actualDay: LocalDate = LocalDate.now(Clock.systemUTC())
     private var x1 = 0f
     private var x2 = 0f
-    private val MIN_DISTANCE = 100
+
+    private fun showPopup(weekView: WeekView) {
+        val popupView = layoutInflater.inflate(R.layout.popup_layout, null)
+        val popupWindow = PopupWindow(
+                popupView,
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+        )
+
+        val textView = popupView.findViewById<TextView>(R.id.textView)
+        textView.text = "Ceci est un exemple de popup prenant tout l'écran"
+
+
+        val closeButton = popupView.findViewById<ImageButton>(R.id.closeButton)
+        closeButton.setOnClickListener { popupWindow.dismiss() }
+
+        popupWindow.showAtLocation(weekView, Gravity.CENTER, 0, 0)
+    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     @SuppressLint("ClickableViewAccessibility")
@@ -29,6 +51,7 @@ class SampleActivity : AppCompatActivity() {
         setContentView(R.layout.activity_sample)
 
         val config = EventConfig()
+        weekView.initTextView(findViewById(R.id.textView2))
         weekView.eventConfig = config
         weekView.setShowNowIndicator(true)
 
@@ -36,8 +59,7 @@ class SampleActivity : AppCompatActivity() {
 
         // optional: add an onClickListener for each event
         weekView.setEventClickListener {
-            Toast.makeText(applicationContext, "Removing " + it.event.title, Toast.LENGTH_SHORT).show()
-            weekView.removeView(it)
+            showPopup(weekView)
         }
 
         // optional: register a context menu to each event
@@ -51,7 +73,7 @@ class SampleActivity : AppCompatActivity() {
                 MotionEvent.ACTION_UP -> {
                     x2 = event.x
                     val deltaX = x2 - x1
-                    if (abs(deltaX) > MIN_DISTANCE) {
+                    if (abs(deltaX) > 200) {
                         if (deltaX < 0) {
                             weekView.advanceInitialDay()
                         } else {
@@ -74,39 +96,32 @@ class SampleActivity : AppCompatActivity() {
             }
             false
         }
-    }
 
-    override fun onCreateContextMenu(menu: ContextMenu, v: View, menuInfo: ContextMenu.ContextMenuInfo) {
-        val (event) = menuInfo as EventView.LessonViewContextInfo
-        menu.setHeaderTitle(event.title)
-        menu.add("First Option")
-        menu.add("Second Option")
-        menu.add("Third Option")
-        super.onCreateContextMenu(menu, v, menuInfo)
+        findViewById<ImageButton>(R.id.imageButton).setOnClickListener { weekView.advanceInitialDay() }
+        findViewById<ImageButton>(R.id.imageButton2).setOnClickListener { weekView.reculInitialDay() }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add("<").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
-        menu.add(">").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        menu.add("settings").setIcon(android.R.drawable.ic_menu_info_details).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         return super.onCreateOptionsMenu(menu)
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.title) {
-            "<" -> {
-                Log.i(TAG, "add option clicked")
-                weekView.reculInitialDay()
-            }
-            ">" -> {
-                Log.i(TAG, "clear option clicked")
-                weekView.advanceInitialDay()
+            "settings" -> {
+                Log.i(TAG, "settings")
             }
         }
         return true
     }
 
+    private fun redraw() {
+
+    }
+
     companion object {
         private const val TAG = "SampleActivity"
     }
+
 }

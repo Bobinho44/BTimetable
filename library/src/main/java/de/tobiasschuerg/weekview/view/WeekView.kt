@@ -9,15 +9,16 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.widget.RelativeLayout
+import android.widget.TextView
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AppCompatActivity
+import com.jakewharton.threetenabp.AndroidThreeTen
 import de.tobiasschuerg.weekview.R
 import de.tobiasschuerg.weekview.data.*
 import de.tobiasschuerg.weekview.util.Animation
 import de.tobiasschuerg.weekview.util.DayOfWeekUtil
 import de.tobiasschuerg.weekview.util.dipToPixelF
-import org.threeten.bp.Duration
-import org.threeten.bp.LocalDate
-import org.threeten.bp.LocalTime
+import org.threeten.bp.*
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -39,11 +40,18 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
     private val scaleGestureDetector: ScaleGestureDetector
     private val weekViewConfig: WeekViewConfig
 
-    private var initialDay: LocalDate = LocalDate.now()
+    private var initialDay: LocalDate = LocalDate.now(Clock.systemUTC())
 
     var eventConfig = EventConfig()
 
+    lateinit var textView: TextView
+
+    fun initTextView(textView: TextView) {
+        this.textView = textView
+    }
+
     init {
+        AndroidThreeTen.init(context)
         val arr = context.obtainStyledAttributes(attributeSet, R.styleable.WeekView)
         accentColor = arr.getColor(R.styleable.WeekView_accent_color, Color.BLUE)
         arr.recycle() // Do this when done.
@@ -81,7 +89,7 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
 
         var weekData: List<Event.Single> = ArrayList()
         val thread = Thread {
-            weekData = EventCreator.daysData(days)
+            weekData = EventCreator.daysData(days, textView)
         }
         thread.start()
         thread.join()
@@ -145,6 +153,7 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     fun addEvents(weekData: WeekData) {
         Log.d(TAG, "Adding ${weekData.getSingleEvents().size} weekData to week view")
 
@@ -160,6 +169,7 @@ class WeekView(context: Context, attributeSet: AttributeSet) :
         Log.d(TAG, " - Done adding weekData to timetable")
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     fun addEvent(event: Event.Single) {
 
         val lv = EventView(this, context, event, eventConfig, weekViewConfig.scalingFactor)
